@@ -2,49 +2,53 @@ version: '3.7'
 
 services:
   spark-master:
-    build: my-spark-image 
+    build: .
+    image: custom-spark:latest
     container_name: spark-master
     environment:
       - SPARK_MODE=master
       - SPARK_MASTER_HOST=spark-master
       - SPARK_MASTER_PORT=7077
       - SPARK_MASTER_WEBUI_PORT=8080
+      - SPARK_EVENT_LOG_ENABLED=true
+      - SPARK_EVENT_LOG_DIR=/tmp/spark-events
     ports:
       - "8080:8080"
       - "7077:7077"
-    networks:
-      - spark-network
+    volumes:
+      - ./spark-logs:/tmp/spark-events
 
   spark-worker:
-    build: my-spark-image 
+    build: .
+    image: custom-spark:latest 
     # container_name: spark-worker
     environment:
       - SPARK_MODE=worker
       - SPARK_WORKER_CORES=1
       - SPARK_WORKER_MEMORY=1G
-      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_EVENT_LOG_ENABLED=true
+      - SPARK_EVENT_LOG_DIR=/tmp/spark-events
+    volumes:
+      - ./spark-logs:/tmp/spark-events
     depends_on:
       - spark-master
     ports:
       - "8081-8088:8081"
-      - "4040-4050:4040"
     scale: 3
-    networks:
-      - spark-network
 
   spark-history-server:
-    build: my-spark-image 
+    image: custom-spark:latest
     container_name: spark-history-server
+    hostname: spark-history-server
     environment:
-      - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/opt/spark-logs -Dspark.history.ui.port=18080
-      - SPARK_NO_DAEMONIZE=true
-    volumes:
-      - ./spark-logs:/opt/spark-logs
+      - SPARK_MODE=history
+      - SPARK_HISTORY_FS_LOGDIRECTORY=/tmp/spark-events
     ports:
       - "18080:18080"
-    networks:
-      - spark-network
+    volumes:
+      - ./spark-logs:/tmp/spark-events
+    depends_on:
+      - spark-master
+    
 
-networks:
-  spark-network:
-    driver: bridge
